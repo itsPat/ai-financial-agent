@@ -14,8 +14,16 @@ const llm = new ChatOpenAI({
   temperature: 0,
 });
 
+// Define a type for chat history entries
+type ChatHistoryEntry = {
+  role: "user" | "assistant";
+  content: string;
+  timestamp: string;
+};
+
 type AgentState = {
   userQuery: string;
+  chatHistory: ChatHistoryEntry[];
   intent: {
     type: string;
     dateRange?: { startDate: string | null; endDate: string | null };
@@ -35,8 +43,17 @@ type AgentState = {
 
 async function analyzeIntent(state: AgentState): Promise<Partial<AgentState>> {
   try {
+    // Prepare chat history context for the intent analysis
+    const chatHistoryContext = state.chatHistory
+      .slice(-3) // Only include last 3 exchanges for context
+      .map((entry) => `${entry.role}: ${entry.content}`)
+      .join("\n");
+
     const response = await llm.invoke(
       `Extract the intent from this financial query: "${state.userQuery}"
+      
+      Previous conversation context:
+      ${chatHistoryContext}
       
       Return a JSON object with these properties:
       - type: string (one of: "spending_summary", "transaction_list", "category_breakdown", "merchant_analysis", "income_summary", "account_balance", "trend_analysis", "custom_query")
@@ -51,6 +68,10 @@ async function analyzeIntent(state: AgentState): Promise<Partial<AgentState>> {
       
       For relative terms like "last week", "last month", etc., calculate the actual dates.
       Today's date is ${new Date().toISOString()}.
+      
+      If the query is a follow-up to previous questions, use the conversation context to infer missing details.
+      For example, if the user previously asked about "restaurants" and now asks "how about last month?", 
+      infer that they're still asking about restaurants but for a different time period.
       
       Return ONLY a valid JSON object with no additional text.`
     );
@@ -78,22 +99,33 @@ async function generateSqlQuery(
   if (state.error) return { error: state.error };
 
   try {
-    const prompt = `Given the following information, your task it to generate a SQL query to respond to the user's query.
+    // Include chat history for context
+    const recentChatHistory = state.chatHistory
+      .slice(-3)
+      .map((entry) => `${entry.role}: ${entry.content}`)
+      .join("\n");
 
-    Context: 
-    ${JSON.stringify(state, null, 1)}
+    const prompt = `Given the following information, your task is to generate a SQL query to respond to the user's query.
+
+    Conversation history:
+    ${recentChatHistory}
+
+    Current query: "${state.userQuery}"
+    
+    Intent analysis: 
+    ${JSON.stringify(state.intent, null, 1)}
 
     Database schema:
     - Table: transactions 
     - Fields: 
       - id: INTEGER primary key
       - date: TEXT (ISO date string)
-      - amount: INTEGER (in cents, negative for expenses, positive for income)
+      - amount: INTEGER (in cents, negative for expenses/purchases, positive for deposits/income)
       - category: TEXT
       - merchant: TEXT
-      - account: TEXT`;
-
-    console.log(`✨ SYSTEM: ${prompt}`);
+      - account: TEXT
+      
+    Use the conversation history to resolve ambiguities or references in the current query.`;
 
     const response = await llm.invoke([
       {
@@ -105,7 +137,6 @@ async function generateSqlQuery(
         content: "```sql\n",
       },
     ]);
-    console.log(`✨ Got raw response:\n${response.content}`);
 
     // Extract just the SQL query, removing any markdown code blocks
     let generatedQuery = (response.content as string).trim();
@@ -114,8 +145,6 @@ async function generateSqlQuery(
     generatedQuery = generatedQuery
       .replace(/```sql\n/g, "")
       .replace(/```/g, "");
-
-    console.log(`✨ Cleaned query:\n${generatedQuery}`);
 
     return {
       sqlQuery: generatedQuery,
@@ -127,7 +156,7 @@ async function generateSqlQuery(
   }
 }
 
-// 3. Execute the query
+// Execute the query
 function executeQuery(state: AgentState): Partial<AgentState> {
   if (state.error) return { error: state.error };
 
@@ -148,11 +177,8 @@ function executeQuery(state: AgentState): Partial<AgentState> {
     )
       throw new Error("Invalid or unsafe SQL query.");
 
-    console.log("Executing SQL Query:", state.sqlQuery);
-
     const prepared = sqlite.prepare(state.sqlQuery);
     const result = prepared.all();
-    console.log("Did get result:", result);
 
     return {
       queryResults: result,
@@ -166,7 +192,7 @@ function executeQuery(state: AgentState): Partial<AgentState> {
   }
 }
 
-// 4. Generate response
+// Generate response
 async function generateResponse(
   state: AgentState
 ): Promise<Partial<AgentState>> {
@@ -177,27 +203,47 @@ async function generateResponse(
   }
 
   try {
+    // Include chat history for context
+    const recentChatHistory = state.chatHistory
+      .slice(-3)
+      .map((entry) => `${entry.role}: ${entry.content}`)
+      .join("\n");
+
     const response = await llm.invoke(
-      `Given the user query and the results from our database, generate a helpful, conversational response.
+      `Given the user query, conversation history, and the results from our database, generate a helpful, conversational response.
       
-      User query: "${state.userQuery}"
+      Conversation history:
+      ${recentChatHistory}
+      
+      Current user query: "${state.userQuery}"
       
       Query results: ${JSON.stringify(state.queryResults, null, 2)}
       Intent: ${JSON.stringify(state.intent, null, 2)}
       
       Important notes:
-      - Format currency values nicely (e.g., $1,234.56)
-      - amount data in the database is stored in cents, remember to divide by 100 to get dollars before formatting it.
+      - Always divide amounts by 100 first to convert to dollars as they are stored in cents.
       - Keep the response conversational and helpful
       - Include relevant details but be concise
       - If appropriate, mention date ranges or categories analyzed
       - If the results are empty, explain that no transactions were found matching the criteria
+      - Reference previous questions if this is a follow-up
       
       Return ONLY the response text with no additional formatting or code.`
     );
 
+    const responseText = (response.content as string).trim();
+
+    // Create a new chat history entry for the assistant's response
+    const newChatHistory = [...state.chatHistory];
+    newChatHistory.push({
+      role: "assistant",
+      content: responseText,
+      timestamp: new Date().toISOString(),
+    });
+
     return {
-      response: (response.content as string).trim(),
+      response: responseText,
+      chatHistory: newChatHistory,
     };
   } catch (error) {
     return {
@@ -206,10 +252,26 @@ async function generateResponse(
   }
 }
 
+// Update chat history with user query
+function updateChatHistory(state: AgentState): Partial<AgentState> {
+  // Create a new chat history entry for the user query
+  const newChatHistory = [...state.chatHistory];
+  newChatHistory.push({
+    role: "user",
+    content: state.userQuery,
+    timestamp: new Date().toISOString(),
+  });
+
+  return {
+    chatHistory: newChatHistory,
+  };
+}
+
 // Initialize StateGraph
 const graph = new StateGraph<AgentState>({
   channels: {
     userQuery: null,
+    chatHistory: null,
     intent: null,
     sqlQuery: null,
     queryResults: null,
@@ -218,12 +280,14 @@ const graph = new StateGraph<AgentState>({
   },
 })
   // Create the nodes
+  .addNode("updateChatHistory", updateChatHistory)
   .addNode("analyzeIntent", analyzeIntent)
   .addNode("generateSqlQuery", generateSqlQuery)
   .addNode("executeQuery", executeQuery)
   .addNode("generateResponse", generateResponse)
   // Create the relationships
-  .addEdge(START, "analyzeIntent")
+  .addEdge(START, "updateChatHistory")
+  .addEdge("updateChatHistory", "analyzeIntent")
   .addEdge("analyzeIntent", "generateSqlQuery")
   .addEdge("generateSqlQuery", "executeQuery")
   .addEdge("executeQuery", "generateResponse")
@@ -244,15 +308,19 @@ async function main() {
   const debug = args.includes("--debug");
 
   console.log("================================");
-  console.log("🤖 Advanced Finance Agent");
+  console.log("🤖 Advanced Finance Agent with Chat History");
   console.log("================================");
   console.log("🤖: Ask me anything about your finances, like:");
   console.log("- How much did I spend last week?");
   console.log("- What were my top 5 spending categories last month?");
+  console.log("- And now you can ask follow-up questions!");
   console.log("--------------------------------");
 
+  // Initialize chat history
+  let chatHistory: ChatHistoryEntry[] = [];
+
   const askQuestion = () => {
-    rl.question("> ", async (query) => {
+    rl.question("\n> ", async (query) => {
       if (query.toLowerCase() === "exit" || query.toLowerCase() === "quit") {
         console.log("Goodbye! Thanks for using the Finance Agent.");
         rl.close();
@@ -267,10 +335,14 @@ async function main() {
         // Execute the workflow
         const result = await financeAgent.invoke({
           userQuery: query,
+          chatHistory: chatHistory,
           intent: {
             type: "",
           },
         });
+
+        // Update the chat history for the next interaction
+        chatHistory = result.chatHistory || chatHistory;
 
         // In debug mode, show the full workflow
         if (debug) {
@@ -282,6 +354,8 @@ async function main() {
             "\nQuery Results:",
             JSON.stringify(result.queryResults, null, 2)
           );
+          console.log("\nChat History (last 3 entries):");
+          console.log(JSON.stringify(chatHistory.slice(-3), null, 2));
           console.log("==== END DEBUG ====\n");
         }
 
