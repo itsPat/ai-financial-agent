@@ -18,7 +18,6 @@ const llm = new ChatOpenAI({
 type ChatHistoryEntry = {
   role: "user" | "assistant";
   content: string;
-  timestamp: string;
 };
 
 type AgentState = {
@@ -238,7 +237,6 @@ async function generateResponse(
     newChatHistory.push({
       role: "assistant",
       content: responseText,
-      timestamp: new Date().toISOString(),
     });
 
     return {
@@ -254,12 +252,10 @@ async function generateResponse(
 
 // Update chat history with user query
 function updateChatHistory(state: AgentState): Partial<AgentState> {
-  // Create a new chat history entry for the user query
   const newChatHistory = [...state.chatHistory];
   newChatHistory.push({
     role: "user",
     content: state.userQuery,
-    timestamp: new Date().toISOString(),
   });
 
   return {
@@ -308,25 +304,14 @@ async function main() {
   const debug = args.includes("--debug");
 
   console.log("================================");
-  console.log("🤖 Advanced Finance Agent with Chat History");
+  console.log("🤖 Finance Agent");
   console.log("================================");
-  console.log("🤖: Ask me anything about your finances, like:");
-  console.log("- How much did I spend last week?");
-  console.log("- What were my top 5 spending categories last month?");
-  console.log("- And now you can ask follow-up questions!");
-  console.log("--------------------------------");
 
   // Initialize chat history
   let chatHistory: ChatHistoryEntry[] = [];
 
   const askQuestion = () => {
     rl.question("\n> ", async (query) => {
-      if (query.toLowerCase() === "exit" || query.toLowerCase() === "quit") {
-        console.log("Goodbye! Thanks for using the Finance Agent.");
-        rl.close();
-        return;
-      }
-
       try {
         console.log("-------------------------------");
         console.log("Processing your question...");
