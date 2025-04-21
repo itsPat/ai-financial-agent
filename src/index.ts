@@ -19,7 +19,7 @@ const models = {
   }),
   // Powerful reasoning but expensive
   reasoning: new ChatOpenAI({
-    // modelName: "o4-mini", Uncomment for better planning.
+    // modelName: "o4-mini",
     modelName: "gpt-4.1",
     temperature: 0,
   }),
@@ -86,7 +86,7 @@ async function main() {
       const stream = await workflow.stream(state, { debug: true });
 
       for await (const chunk of stream) {
-        for (const [_, delta] of Object.entries(
+        for (const [nodeName, delta] of Object.entries(
           chunk as Record<string, Partial<AgentState>>
         )) {
           // console.log(`\n======================================`);
@@ -94,6 +94,8 @@ async function main() {
           // console.log(`--------------------------------------`);
           // console.log({ ...state, ...delta });
           // console.log(`======================================`);
+
+          console.log(`|  ${nodeName} Finished`);
           state = { ...state, ...delta };
         }
       }

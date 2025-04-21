@@ -21,7 +21,7 @@ export default {
   query: {
     transactions: tool(
       async ({ query, parameters = [] }) => {
-        console.log(`📀 DB QUERY: ${query} with params:`, parameters);
+        console.log(`|  📀 DB QUERY: ${query} with params:`, parameters);
         throwIfUnsafeQuery(query);
         if (!query.toUpperCase().includes("FROM TRANSACTIONS")) {
           throw new Error(`Query must target the transactions table`);
@@ -40,7 +40,7 @@ export default {
       },
       {
         name: "query_db_transactions",
-        description: `Execute a SQL query to retrieve data from the transactions table. <table_schema>${JSON.stringify(
+        description: `Execute a SQLite query to retrieve data from the transactions table. <table_schema>${JSON.stringify(
           zodToJsonSchema(transactionSchema)
         )}</table_schema>`,
         schema: z.object({

@@ -34,7 +34,7 @@ export class Executor extends BaseNode {
         </task>
 
         <best_practices>
-          - Prefer usage of SQL built-in aggregation functions over math tools. (SUM, AVG, COUNT, etc.)
+          - Prefer usage of SQLite built-in aggregation functions over math tools. (SUM, AVG, COUNT, etc.)
           - Filter data at the database level, not after retrieval
           - Only select the columns you need - avoid SELECT *
           - Use efficient queries that minimize data transfer

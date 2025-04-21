@@ -5,7 +5,7 @@ import { z } from "zod";
 export default {
   evaluate: tool(
     async ({ expression }) => {
-      console.log(`🧮 MATH expression:`, expression);
+      console.log(`|  🧮 MATH expression:`, expression);
       try {
         const result = math.evaluate(expression);
         return result.toString();
