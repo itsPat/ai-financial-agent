@@ -24,6 +24,9 @@
     "better-sqlite3": "^11.9.1",
     "dotenv": "^16.5.0",
     "drizzle-kit": "^0.31.0",
-    "drizzle-orm": "^0.42.0"
+    "drizzle-orm": "^0.42.0",
+    "mathjs": "^14.4.0",
+    "zod": "^3.24.3",
+    "zod-to-json-schema": "^3.24.5"
   }
 }
