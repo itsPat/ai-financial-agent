@@ -83,18 +83,34 @@ async function main() {
       };
 
       const stream = await workflow.stream(state, { debug: true });
+      let totalSteps = 0;
 
       for await (const chunk of stream) {
         for (const [nodeName, delta] of Object.entries(
           chunk as Record<string, Partial<AgentState>>
         )) {
+          // console.log(`|  ${nodeName} Finished`);
+          state = { ...state, ...delta };
+
+          totalSteps = (state.plan?.length ?? 0) + 2;
+          const stepsCompleted =
+            (state.plan?.reduce(
+              (prev, curr) => prev + (curr.status === "completed" ? 1 : 0),
+              0
+            ) ?? 0) +
+            (state.plan ? 1 : 0) +
+            (state.result ? 1 : 0);
+          const progress = stepsCompleted / totalSteps;
+
           console.log(`\n======================================`);
-          console.log(`[${nodeName.toUpperCase()}] Finished`);
+          console.log(
+            `[${nodeName.toUpperCase()}] Finished (${Math.floor(
+              progress * 100
+            )}%)`
+          );
           console.log(`--------------------------------------`);
           console.log({ ...state, ...delta });
           console.log(`======================================`);
-          // console.log(`|  ${nodeName} Finished`);
-          state = { ...state, ...delta };
         }
       }
 
