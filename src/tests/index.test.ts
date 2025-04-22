@@ -24,11 +24,7 @@ function log(message: string) {
 }
 
 let db: DB;
-const testResults: Array<{
-  query: string;
-  manualResult: string;
-  workflowResult: string;
-}> = [];
+const testResults: Record<string, { manual: string; workflow: string }> = {};
 
 beforeAll(async () => {
   db = new Database(DB_PATH);
@@ -230,11 +226,10 @@ describe("Financial Agent Tests", () => {
           workflowResult?.result?.message
         );
 
-        testResults.push({
-          query: prompt,
-          manualResult: manualResult.message,
-          workflowResult: workflowResult?.result?.message ?? "No result",
-        });
+        testResults[prompt] = {
+          manual: manualResult.message,
+          workflow: workflowResult?.result?.message ?? "No result",
+        };
 
         expect(verdict).toBe("pass");
       },
