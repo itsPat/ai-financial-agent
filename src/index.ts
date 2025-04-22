@@ -33,7 +33,7 @@ const models = {
 const graph = new StateGraph<AgentState>({
   channels: {
     messages: null,
-    goal: null,
+    intent: null,
     plan: null,
     error: null,
     result: null,

@@ -8,21 +8,36 @@ import { z } from "zod";
 import formatMessages from "../utils/formatMessages";
 
 const plannerResultSchema = z.object({
-  goal: z.string().describe("The user's current goal"),
-  plan: planSchema,
+  intent: z.string().describe("The user's current intent"),
+  plan: planSchema.element.shape.action.array(),
 });
 
 export class Planner extends BaseNode {
   async run(state: AgentState): Promise<Partial<AgentState>> {
     await super.run(state);
     try {
-      const prefill = `{`;
+      const prefill = `{ "intent": `;
       const response = await this.llm.invoke([
         new SystemMessage(
-          `<context>
-          You are part of a financial agent system which answers user queries. You are the Planner.
+          `<role>
+          You are the PLANNER component in a financial agent system. Your specific responsibility is to analyze user requests, determine their underlying intent, and create an actionable plan that other system components will execute.
+          </role>
+          
+          <task>
+          1. Analyze the provided messages to identify the user's current intent (the underlying purpose of their request)
+          2. Create a plan from this intent that makes use of the appropriate tools to gather necessary information
+          3. Return a JSON object that conforms to the provided schema containing both the intent and the plan.
+          </task>
 
-          The system has access to the following tools:
+          <notes>
+          - Database stores values in cents. Assume users want values in dollars unless specified otherwise.
+          - Use SQLite aggregations (SUM, AVG, COUNT) instead of post-processing data whenever possible.
+          - Filter data at the query level with WHERE clauses          
+          - Select only the columns you need (avoid SELECT *)
+          - Minimize data transfer by using precise queries.
+          </notes>
+          
+          <available_tools>
           ${JSON.stringify(
             ALL_TOOLS.map((tool) => ({
               name: tool.name,
@@ -30,34 +45,18 @@ export class Planner extends BaseNode {
               schema: tool.schema,
             }))
           )}
-          </context>
-
-          <task>
-          First you will identify the current goal of the user based on the messages. Then you will create a plan of steps required to achieve the goal.
-          
-          Each step should be a discrete action. Remember to make use of the tools provided.
-          
-          Return an JSON object that matches the included schema including both the goal and the plan.
-          </task>
+          </available_tools>
 
           <messages>
           ${formatMessages(state.messages, 20)}
           </messages>
-
-          <notes>
-          - Use built-in SQLite aggregations over math tools. (SUM, AVG, COUNT, etc.)
-          - Only select the columns you need - avoid SELECT *
-          - Filter data at the database level, not after retrieval
-          - Minimize the amount of data you fetch from the database.
-          - Database stores values in cents. Assume users want values in dollars unless specified otherwise.
-          </notes>
 
           <schema>
           ${zodToJsonSchema(plannerResultSchema)}
           </schema>
 
           <example_output>
-          {"goal":"Compare the user's cash flow for this month, compared to previous month.","plan":[{"action":"Convert \"previous month\" into a date range.","status":"pending"},{"action":"Convert \"this month\" into a date range.","status":"pending"},{"action":"Fetch the sum of spending (negative amounts) for the previous month","status":"pending"},{"action":"Fetch the sum of income (postive amounts) for the previous month","status":"pending"},{"action":"Fetch the sum of spending (negative amounts) for the current month","status":"pending"},{"action":"Fetch the sum of income (postive amounts) for the current month","status":"pending"},{"action":"Convert the sum of spending (negative amounts) for the previous month from cents to dollars.","status":"pending"},{"action":"Convert the sum of income (postive amounts) for the previous month from cents to dollars.","status":"pending"},{"action":"Convert the sum of spending (negative amounts) for the current month from cents to dollars.","status":"pending"},{"action":"Convert the sum of income (postive amounts) for the current month from cents to dollars.","status":"pending"}]}
+          {"intent":"Compare cash flow for this month and the previous month.","plan":["Convert \"previous month\" into a date range.","Convert \"this month\" into a date range.","Fetch the sum of spending (negative amounts) for the previous month","Fetch the sum of income (postive amounts) for the previous month","Fetch the sum of spending (negative amounts) for the current month","Fetch the sum of income (postive amounts) for the current month","Convert the sum of spending (negative amounts) for the previous month from cents to dollars.","Convert the sum of income (postive amounts) for the previous month from cents to dollars.","Convert the sum of spending (negative amounts) for the current month from cents to dollars.","Convert the sum of income (postive amounts) for the current month from cents to dollars."]}
           </example_output>
           `
         ),
@@ -65,18 +64,28 @@ export class Planner extends BaseNode {
         new AIMessage(prefill),
       ]);
 
-      const responseContent = response.content.toString().trim();
+      console.log(`\n✨ RAW:`);
+      const responseContent = response.content.toString();
 
-      const fullContent = responseContent.startsWith(prefill)
+      console.log(responseContent);
+
+      console.log(`\n✨ FULL:`);
+      const fullContent = responseContent
+        .replace(/\s+/g, "")
+        .startsWith(prefill.replace(/\s+/g, ""))
         ? responseContent
         : prefill + responseContent;
+
+      console.log(fullContent);
+
       if (!fullContent) throw new Error("Failed to get response");
 
       const json = JSON.parse(fullContent);
-      const { goal, plan } = await plannerResultSchema.parseAsync(json);
+      const { intent, plan } = await plannerResultSchema.parseAsync(json);
+
       return {
-        goal,
-        plan,
+        intent,
+        plan: plan.map((action) => ({ action: action, status: "pending" })),
       };
     } catch (error) {
       return { error: `Failed to generate plan: ${error}` };

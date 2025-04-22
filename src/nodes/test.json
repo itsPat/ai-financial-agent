@@ -1,0 +1,15 @@
+{
+  "intent": "Compare cash flow for this month and the previous month.",
+  "plan": [
+    "Convert \"previous month\" into a date range.",
+    "Convert \"this month\" into a date range.",
+    "Fetch the sum of spending (negative amounts) for the previous month",
+    "Fetch the sum of income (postive amounts) for the previous month",
+    "Fetch the sum of spending (negative amounts) for the current month",
+    "Fetch the sum of income (postive amounts) for the current month",
+    "Convert the sum of spending (negative amounts) for the previous month from cents to dollars.",
+    "Convert the sum of income (postive amounts) for the previous month from cents to dollars.",
+    "Convert the sum of spending (negative amounts) for the current month from cents to dollars.",
+    "Convert the sum of income (postive amounts) for the current month from cents to dollars."
+  ]
+}

@@ -4,7 +4,7 @@ export const planStepSchema = z.object({
   action: z
     .string()
     .describe(
-      "An action to perform to accomplish the goal. e.g. 'Fetch all transactions within the category of travel within the last week'"
+      "An action to perform to accomplish the intent. e.g. 'Fetch all transactions within the category of travel within the last week'"
     ),
   status: z
     .union([

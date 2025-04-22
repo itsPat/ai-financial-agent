@@ -9,7 +9,7 @@ export const agentStateResultSchema = z.object({
 
 export const agentStateSchema = z.object({
   messages: messageSchema.array(),
-  goal: z.string().optional(),
+  intent: z.string().optional(),
   plan: planSchema.optional(),
   error: z.string().optional(),
   result: agentStateResultSchema.optional(),

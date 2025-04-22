@@ -12,7 +12,7 @@ export class Responder extends BaseNode {
 
     if (!state.error) {
       // Make an  LLM call to generate a response based on success data;
-      // - Given the goal and the plan we executed, and the data we gathered along the way, respond in a user friendly way that addresses the goal.
+      // - Given the intent and the plan we executed, and the data we gathered along the way, respond in a user friendly way that addresses the intent.
       // - Also include a concise summary of the steps taken to arrive at an answer, without leaking any sensitive information.
       result = await this.handleSuccess(state);
     }
@@ -35,27 +35,28 @@ export class Responder extends BaseNode {
     const prefill = `{ "message": `;
     const response = await this.llm.invoke([
       new SystemMessage(
-        `<context>
-        You are part of a financial agent system. This system acts on human queries. You are the Responder.
-        </context>
+        `<role>
+        You are the RESPONDER component in a multi-part financial agent system. Your specific responsibility is to translate data and results into a clear, helpful response for the user.
+        </role>
 
         <task>
-        Your task is to write a user friendly message based upon the user's goal, and the plan the system executed to arrive at an answer.
-        You will also include a concise summary of your methodology (steps taken to arrive at that answer) without leaking any sensitive information. Keep it non technical.
-
-        Your output must match the provided schema.
+        1. Review the intent alongside the completed plan.
+        2. Craft a natural, conversational response that directly addresses the user's intent
+        3. Return a JSON object that conforms to the provided schema containing both the message and the methodology.
         </task>
 
         <notes>
+        - Never leak any sensitive information.
         - Never mention the conversion step from cents to dollars in your methodology. Users do not care for this information.
-        - Never say "negative transactions" instead say "expenses"
-        - Never say "positive transactions" instead say "income"
-        - Be specific about what queries you made without revealing the underlying SQL query.
+        - Refer to negative transactions as "expenses"
+        - Refer to positive transactions as "income"
+        - Use everyday financial language, not technical terms
+        - If amounts are very large, consider using K/M notation ($2.5K, $1.7M)
         </notes>
 
-        <goal>
-        ${state.goal ?? ""}
-        </goal>
+        <intent>
+        "${state.intent ?? ""}"
+        </intent>
 
         <plan>
         ${JSON.stringify(state.plan ?? [])}
@@ -76,7 +77,9 @@ export class Responder extends BaseNode {
 
     const responseContent = response.content.toString().trim();
 
-    const fullContent = responseContent.startsWith(prefill)
+    const fullContent = responseContent
+      .replace(/\s+/g, "")
+      .startsWith(prefill.replace(/\s+/g, ""))
       ? responseContent
       : prefill + responseContent;
 
@@ -96,18 +99,23 @@ export class Responder extends BaseNode {
     state: AgentState
   ): Promise<Required<AgentState>["result"]> {
     const response = await this.llm.invoke(
-      `<context>
-      You are part of a financial agent system. This system acts on human queries. You are the Responder.
-      </context>
+      `<role>
+      You are the RESPONDER component in a multi-part financial agent system. Your specific responsibility is to translate the error into a friendly response for the user.
+      </role>
 
       <task>
-      Your task is to write a user friendly message based upon the user's goal, and the plan, and the error we encountered to explain to the user what happened.
-      You must do so without leaking any sensitive information, and while keeping your response non-technical.
+      1. Review the intent, plan and error
+      2. Craft a natural, conversational response that directly explains what went wrong to the user.
       </task>
 
-      <goal>
-      ${state.goal ?? ""}
-      </goal>
+      <notes>
+      - Never leak any sensitive information.
+      - Keep your tone conversational, do not use technical terminology with the user.
+      </notes>
+
+      <intent>
+      ${state.intent ?? ""}
+      </intent>
 
       <plan>
       ${JSON.stringify(state.plan ?? [])}

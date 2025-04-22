@@ -21,11 +21,17 @@ export class Executor extends BaseNode {
         throw new Error("Unable to proceed without current step");
 
       const response = await this.llm.bindTools(ALL_TOOLS).invoke(
-        `<context>
-        You are part of a financial agent system. This system acts on human queries. You are the Executor.
+        `<role>
+        You are the EXECUTOR component in a financial agent system. Your specific responsibility is to complete individual actions in the plan to address the intent.
+        </role>
 
-        Today's date is: ${new Date().toISOString()}
-        </context>
+        <task>
+        Execute this the action specified below.
+        </task>
+        
+        <current_date>
+        ${new Date().toISOString()}
+        </current_date>
 
         <task>
         Your task is to complete the following action as part of a bigger plan.
@@ -33,11 +39,16 @@ export class Executor extends BaseNode {
         Your response should include ONLY the result of the action and nothing else.
         </task>
 
-        <best_practices>
-          - Prefer usage of SQLite built-in aggregation functions over math tools. (SUM, AVG, COUNT, etc.)
-          - Filter data at the database level, not after retrieval
-          - Only select the columns you need - avoid SELECT *
-          - Use efficient queries that minimize data transfer
+        <notes>
+        - General
+          - Focus solely on completing the action
+          - Use the most appropriate tool when needed
+          - Return ONLY the result, no explanations or commentary
+        - Database Tools
+          - Use SQLite aggregations (SUM, AVG, COUNT) instead of post-processing data whenever possible.
+          - Filter data at the query level with WHERE clauses
+          - Select only the columns you need (avoid SELECT *)
+          - Minimize data transfer by using precise queries.
         </best_practices>
 
         <plan>
