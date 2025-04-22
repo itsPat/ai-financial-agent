@@ -89,7 +89,6 @@ async function main() {
         for (const [nodeName, delta] of Object.entries(
           chunk as Record<string, Partial<AgentState>>
         )) {
-          // console.log(`|  ${nodeName} Finished`);
           state = { ...state, ...delta };
 
           totalSteps = (state.plan?.length ?? 0) + 2;
@@ -101,7 +100,6 @@ async function main() {
             (state.plan ? 1 : 0) +
             (state.result ? 1 : 0);
           const progress = stepsCompleted / totalSteps;
-
           console.log(`\n======================================`);
           console.log(
             `[${nodeName.toUpperCase()}] Finished (${Math.floor(
@@ -125,14 +123,6 @@ async function main() {
           date: new Date().toISOString(),
         });
         console.log("🤖💬:", state.result.message);
-        if (state.result.methodology) {
-          messages.push({
-            role: "assistant",
-            content: state.result.methodology,
-            date: new Date().toISOString(),
-          });
-          console.log("🤖💭:", state.result.methodology);
-        }
       }
 
       // Prompt for the next question

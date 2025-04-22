@@ -5,7 +5,6 @@ import { z } from "zod";
 export default {
   evaluate: tool(
     async ({ expression }) => {
-      console.log(`|  🧮 MATH expression:`, expression);
       try {
         const result = math.evaluate(expression);
         return result.toString();
@@ -31,7 +30,6 @@ export default {
   ),
   solve: tool(
     async ({ equation, variable = "x" }) => {
-      console.log(`🧮 MATH equation:`, equation);
       try {
         const result = math.evaluate(`solve(${equation}, ${variable})`);
         return JSON.stringify(result);

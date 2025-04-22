@@ -64,19 +64,12 @@ export class Planner extends BaseNode {
         new AIMessage(prefill),
       ]);
 
-      console.log(`\n✨ RAW:`);
       const responseContent = response.content.toString();
-
-      console.log(responseContent);
-
-      console.log(`\n✨ FULL:`);
       const fullContent = responseContent
         .replace(/\s+/g, "")
         .startsWith(prefill.replace(/\s+/g, ""))
         ? responseContent
         : prefill + responseContent;
-
-      console.log(fullContent);
 
       if (!fullContent) throw new Error("Failed to get response");
 

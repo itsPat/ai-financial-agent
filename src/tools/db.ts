@@ -21,7 +21,6 @@ export default {
   query: {
     transactions: tool(
       async ({ query, parameters = [] }) => {
-        console.log(`|  📀 DB QUERY: ${query} with params:`, parameters);
         throwIfUnsafeQuery(query);
         if (!query.toUpperCase().includes("FROM TRANSACTIONS")) {
           throw new Error(`Query must target the transactions table`);

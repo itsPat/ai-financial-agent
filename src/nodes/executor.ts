@@ -67,12 +67,13 @@ export class Executor extends BaseNode {
           const tool = TOOLS_BY_NAME[toolCall.name];
           const result = await tool.invoke(toolCall.args as any);
           console.log(
-            `🛠️ TOOL: ${toolCall.name} args: ${JSON.stringify(
+            `🛠️: ${toolCall.name
+              .replace("_", " ")
+              .toUpperCase()}\n${JSON.stringify(
               toolCall.args,
               null,
               1
-            )} = `,
-            result
+            )}\n${result}`
           );
           results.push({
             tool_name: toolCall.name,
