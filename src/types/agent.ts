@@ -1,9 +1,18 @@
-import { Message } from "./message";
-import { Plan } from "./plan";
+import { z } from "zod";
+import { messageSchema } from "./message";
+import { planSchema } from "./plan";
 
-export type AgentState = {
-  messages: Message[];
-  goal?: string;
-  plan?: Plan;
-  response?: { data: string } | { error: string };
-};
+export const agentStateResultSchema = z.object({
+  message: z.string(),
+  methodology: z.string().optional(),
+});
+
+export const agentStateSchema = z.object({
+  messages: messageSchema.array(),
+  goal: z.string().optional(),
+  plan: planSchema.optional(),
+  error: z.string().optional(),
+  result: agentStateResultSchema.optional(),
+});
+
+export type AgentState = z.infer<typeof agentStateSchema>;

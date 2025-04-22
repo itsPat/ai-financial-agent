@@ -2,7 +2,7 @@ import * as path from "path";
 import * as fs from "fs";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import Database from "better-sqlite3";
-import { transactions } from "../db/schemas/transactions";
+import { transactions } from "./schemas/transactions";
 import { count } from "drizzle-orm";
 
 const DB_PATH = path.join(__dirname, "..", "db", "finance.db");

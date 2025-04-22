@@ -4,7 +4,7 @@
   "description": "",
   "main": "src/index.ts",
   "scripts": {
-    "seed": "ts-node src/scripts/seedDb.ts",
+    "seed": "ts-node src/db/seedDb.ts",
     "start": "ts-node src/index.ts"
   },
   "keywords": [],

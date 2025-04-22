@@ -28,6 +28,7 @@ export default {
         }
         const sqlite = new Database(DB_PATH);
         try {
+          // Read from the read-only replicated db.
           const result = sqlite.prepare(query).all(parameters);
           return JSON.stringify(result);
         } catch (err) {

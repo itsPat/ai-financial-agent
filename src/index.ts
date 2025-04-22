@@ -6,7 +6,6 @@ import readline from "readline";
 import { StateGraph, START, END } from "@langchain/langgraph";
 import { AgentState } from "./types/agent";
 import { Message } from "./types/message";
-import { Analyzer } from "./nodes/analyzer";
 import { Planner } from "./nodes/planner";
 import { Executor } from "./nodes/executor";
 import { Responder } from "./nodes/responder";
@@ -36,25 +35,25 @@ const graph = new StateGraph<AgentState>({
     messages: null,
     goal: null,
     plan: null,
-    response: null,
+    error: null,
+    result: null,
   },
 })
   // Create the nodes
-  .addNode("Analyzer", new Analyzer(models.default).run)
   .addNode("Planner", new Planner(models.reasoning).run)
   .addNode("Executor", new Executor(models.execution).run)
   .addNode("Responder", new Responder(models.default).run)
   // Create edges.
-  .addEdge(START, "Analyzer")
-  .addEdge("Analyzer", "Planner")
+  .addEdge(START, "Planner")
+  // Hand off plan to executor if no errors.
   .addConditionalEdges("Planner", (state) => {
-    if (state.response && "error" in state.response) return END;
+    if (state.error) return "Responder";
     return "Executor";
   })
+  // Continue handing off to executor until plan completed unless error.
   .addConditionalEdges("Executor", (state) => {
-    if (state.response && "error" in state.response) return END;
-    if (state.plan?.some((step) => step.status === "pending"))
-      return "Executor";
+    if (state.error) return "Responder";
+    if (state.plan?.some((s) => s.status === "pending")) return "Executor";
     return "Responder";
   })
   .addEdge("Responder", END);
@@ -89,28 +88,35 @@ async function main() {
         for (const [nodeName, delta] of Object.entries(
           chunk as Record<string, Partial<AgentState>>
         )) {
-          // console.log(`\n======================================`);
-          // console.log(`[${nodeName.toUpperCase()}] Finished`);
-          // console.log(`--------------------------------------`);
-          // console.log({ ...state, ...delta });
-          // console.log(`======================================`);
-
-          console.log(`|  ${nodeName} Finished`);
+          console.log(`\n======================================`);
+          console.log(`[${nodeName.toUpperCase()}] Finished`);
+          console.log(`--------------------------------------`);
+          console.log({ ...state, ...delta });
+          console.log(`======================================`);
+          // console.log(`|  ${nodeName} Finished`);
           state = { ...state, ...delta };
         }
       }
 
-      if (state.response && "error" in state.response) {
-        console.error("Error:", state.response.error);
+      if (state.error) {
+        console.error("Error:", state.error);
       }
 
-      if (state.response && "data" in state.response) {
+      if (state.result) {
         messages.push({
           role: "assistant",
-          content: state.response.data,
+          content: state.result.message,
           date: new Date().toISOString(),
         });
-        console.log("🤖:", state.response.data);
+        console.log("🤖💬:", state.result.message);
+        if (state.result.methodology) {
+          messages.push({
+            role: "assistant",
+            content: state.result.methodology,
+            date: new Date().toISOString(),
+          });
+          console.log("🤖💭:", state.result.methodology);
+        }
       }
 
       // Prompt for the next question

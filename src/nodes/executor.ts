@@ -49,18 +49,33 @@ export class Executor extends BaseNode {
         </action>`
       );
 
-      if (response.tool_calls) {
+      if (response.tool_calls && response.tool_calls.length > 0) {
+        const results: { tool_name: string; tool_args: any; result: any }[] =
+          [];
         for (const toolCall of response.tool_calls) {
           const tool = TOOLS_BY_NAME[toolCall.name];
           const result = await tool.invoke(toolCall.args as any);
-          return {
-            plan: this.updatePlan(state.plan, {
-              ...currentStep,
-              status: "completed",
-              result: result,
-            }),
-          };
+          console.log(
+            `🛠️ TOOL: ${toolCall.name} args: ${JSON.stringify(
+              toolCall.args,
+              null,
+              1
+            )} = `,
+            result
+          );
+          results.push({
+            tool_name: toolCall.name,
+            tool_args: toolCall.args,
+            result: result,
+          });
         }
+        return {
+          plan: this.updatePlan(state.plan, {
+            ...currentStep,
+            status: "completed",
+            result: results,
+          }),
+        };
       }
 
       const result = response.content.toString().trim();
@@ -77,9 +92,7 @@ export class Executor extends BaseNode {
     } catch (error) {
       console.error(error);
       return {
-        response: {
-          error: `Failed to execute plan: ${(error as any).message ?? ""}`,
-        },
+        error: `Failed to execute plan: ${(error as any).message ?? ""}`,
       };
     }
   }
