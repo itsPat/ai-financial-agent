@@ -39,17 +39,25 @@ export class Executor extends BaseNode {
         Your response should include ONLY the result of the action and nothing else.
         </task>
 
-        <notes>
-        - General
+        <general_notes>
           - Focus solely on completing the action
           - Use the most appropriate tool when needed
           - Return ONLY the result, no explanations or commentary
-        - Database Tools
+        </general_notes>
+
+        <database_rules>
           - Use SQLite aggregations (SUM, AVG, COUNT) instead of post-processing data whenever possible.
           - Filter data at the query level with WHERE clauses
           - Select only the columns you need (avoid SELECT *)
           - Minimize data transfer by using precise queries.
-        </best_practices>
+        </database_rules>
+
+        <date_conventions>
+        When interpreting relative dates, follow standard American conventions:
+        - "Last week" means the previous complete Sunday-to-Saturday calendar week, not the past 7 days
+        - "Last month" means the previous complete calendar month
+        - "Last year" means the previous complete calendar year
+        </date_conventions>
 
         <plan>
         ${JSON.stringify(state.plan)}
