@@ -1,12 +1,7 @@
 import fs from "fs";
 import path from "path";
 import Database, { type Database as DB } from "better-sqlite3";
-import {
-  lastMonthStartEnd,
-  lastWeekStartEnd,
-  lastYearStartEnd,
-  q1StartEnd,
-} from "./utils/dates";
+import { relativeDates } from "./utils/dates";
 import { toFormattedDollarString } from "./utils/number";
 import { compareResults, getWorkflowResult } from "./utils/ai";
 
@@ -29,6 +24,11 @@ function log(message: string) {
 }
 
 let db: DB;
+const testResults: Array<{
+  query: string;
+  manualResult: string;
+  workflowResult: string;
+}> = [];
 
 beforeAll(async () => {
   db = new Database(DB_PATH);
@@ -38,6 +38,7 @@ beforeAll(async () => {
 afterAll(async () => {
   if (db) db.close();
   logStream.end();
+  console.table(testResults);
 }, 10_000);
 
 describe("Financial Agent Tests", () => {
@@ -50,7 +51,7 @@ describe("Financial Agent Tests", () => {
 
     const manualResult: { query: string; params: any[]; message: string } =
       await new Promise((res) => {
-        const [start, end] = lastWeekStartEnd();
+        const [start, end] = relativeDates.lastWeek();
         const query = `
           SELECT SUM(ABS(amount)) AS total
           FROM transactions
@@ -76,6 +77,12 @@ describe("Financial Agent Tests", () => {
       manualResult.message,
       workflowResult?.result?.message
     );
+
+    testResults.push({
+      query: "How much did I spend last week?",
+      manualResult: manualResult.message,
+      workflowResult: workflowResult?.result?.message ?? "No result",
+    });
 
     expect(verdict).toBe("pass");
   }, 30_000);
@@ -89,7 +96,7 @@ describe("Financial Agent Tests", () => {
 
     const manualResult: { query: string; params: any[]; message: string } =
       await new Promise((res) => {
-        const [start, end] = lastMonthStartEnd();
+        const [start, end] = relativeDates.lastMonth();
         const query = `
           SELECT SUM(ABS(amount)) AS total
           FROM transactions
@@ -116,6 +123,12 @@ describe("Financial Agent Tests", () => {
       workflowResult?.result?.message
     );
 
+    testResults.push({
+      query: "How much did I spend last month?",
+      manualResult: manualResult.message,
+      workflowResult: workflowResult?.result?.message ?? "No result",
+    });
+
     expect(verdict).toBe("pass");
   }, 30_000);
 
@@ -128,7 +141,7 @@ describe("Financial Agent Tests", () => {
 
     const manualResult: { query: string; params: any[]; message: string } =
       await new Promise((res) => {
-        const [start, end] = lastMonthStartEnd();
+        const [start, end] = relativeDates.lastMonth();
         const query = `
           SELECT amount, merchant, date, category
           FROM transactions
@@ -172,6 +185,12 @@ describe("Financial Agent Tests", () => {
       manualResult.message,
       workflowResult?.result?.message
     );
+
+    testResults.push({
+      query: "What was my biggest expense last month?",
+      manualResult: manualResult.message,
+      workflowResult: workflowResult?.result?.message ?? "No result",
+    });
 
     expect(verdict).toBe("pass");
   }, 30_000);
@@ -236,6 +255,12 @@ describe("Financial Agent Tests", () => {
       workflowResult?.result?.message
     );
 
+    testResults.push({
+      query: "What are my top 3 spending categories this month?",
+      manualResult: manualResult.message,
+      workflowResult: workflowResult?.result?.message ?? "No result",
+    });
+
     expect(verdict).toBe("pass");
   }, 30_000);
 
@@ -248,7 +273,7 @@ describe("Financial Agent Tests", () => {
 
     const manualResult: { query: string; params: any[]; message: string } =
       await new Promise((res) => {
-        const [start, end] = q1StartEnd();
+        const [start, end] = relativeDates.q1();
         const query = `
           SELECT AVG(monthly_total) as average_monthly
           FROM (
@@ -279,6 +304,95 @@ describe("Financial Agent Tests", () => {
       manualResult.message,
       workflowResult?.result?.message
     );
+
+    testResults.push({
+      query: "What's my average monthly spend for Q1?",
+      manualResult: manualResult.message,
+      workflowResult: workflowResult?.result?.message ?? "No result",
+    });
+
+    expect(verdict).toBe("pass");
+  }, 30_000);
+
+  test("Compare last month's spend to the month before that", async () => {
+    const workflowResult = await getWorkflowResult(
+      "Compare last month's spend to the month before that"
+    );
+    log("WORKFLOW RESULT:\n");
+    log(JSON.stringify(workflowResult ?? {}, null, 2));
+
+    const manualResult: { query: string; params: any[]; message: string } =
+      await new Promise((res) => {
+        const [monthBeforeLastMonthStart, monthBeforeLastMonthEnd] =
+          relativeDates.monthBeforeLastMonth();
+        const [lastMonthStart, lastMonthEnd] = relativeDates.lastMonth();
+
+        const query = `
+          SELECT
+            SUM(CASE WHEN date >= ? AND date <= ? THEN ABS(amount) ELSE 0 END) AS prev_month,
+            SUM(CASE WHEN date >= ? AND date <= ? THEN ABS(amount) ELSE 0 END) AS last_month
+          FROM transactions
+          WHERE amount < 0
+        `;
+        const params = [
+          monthBeforeLastMonthStart,
+          monthBeforeLastMonthEnd,
+          lastMonthStart,
+          lastMonthEnd,
+        ];
+
+        const result = db.prepare(query).get(params) as {
+          prev_month: number;
+          last_month: number;
+        };
+
+        const prevTotal = result.prev_month ?? 0;
+        const lastTotal = result.last_month ?? 0;
+
+        const prevDollars = toFormattedDollarString(prevTotal);
+        const lastDollars = toFormattedDollarString(lastTotal);
+
+        let comparison: string;
+        let difference = Math.abs(lastTotal - prevTotal);
+        let percentChange =
+          prevTotal === 0 ? null : (difference / prevTotal) * 100;
+
+        if (lastTotal > prevTotal) {
+          comparison = percentChange
+            ? `which is ${toFormattedDollarString(
+                difference
+              )} more (${percentChange.toFixed(1)}% increase)`
+            : `which is more than the previous month`;
+        } else if (lastTotal < prevTotal) {
+          comparison = percentChange
+            ? `which is ${toFormattedDollarString(
+                difference
+              )} less (${percentChange.toFixed(1)}% decrease)`
+            : `which is less than the previous month`;
+        } else {
+          comparison = `which is the same as the previous month`;
+        }
+
+        res({
+          query,
+          params,
+          message: `You spent ${lastDollars} last month, ${comparison} compared to ${prevDollars} the month before.`,
+        });
+      });
+
+    log("MANUAL RESULT:\n");
+    log(JSON.stringify(manualResult ?? {}, null, 2));
+
+    const { verdict } = await compareResults(
+      manualResult.message,
+      workflowResult?.result?.message
+    );
+
+    testResults.push({
+      query: "Compare last month's spend to the month before that",
+      manualResult: manualResult.message,
+      workflowResult: workflowResult?.result?.message ?? "No result",
+    });
 
     expect(verdict).toBe("pass");
   }, 30_000);
