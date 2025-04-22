@@ -25,7 +25,7 @@ export class Planner extends BaseNode {
           
           <task>
           1. Analyze the provided messages to identify the user's current intent (the underlying purpose of their request)
-          2. Create a plan from this intent that makes use of the appropriate tools to gather necessary information
+          2. Create a plan from this intent that makes use of the appropriate tools to gather necessary information (Remember to add a step to convert from cents to dollars!)
           3. Return a JSON object that conforms to the provided schema containing both the intent and the plan.
           </task>
 
