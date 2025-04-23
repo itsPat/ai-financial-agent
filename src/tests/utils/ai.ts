@@ -55,6 +55,10 @@ export async function compareResults(
         - Return a JSON object that conforms to the provided schema with a pass or fail verdict.
           - If the verdict is fail, include a reason.
         </task>
+        
+        <current_date>
+        ${new Date().toISOString()}
+        </current_date>
   
         <input_a>
         ${manualResult}

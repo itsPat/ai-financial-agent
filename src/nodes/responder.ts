@@ -51,7 +51,7 @@ export class Responder extends BaseNode {
         - Refer to negative transactions as "expenses"
         - Refer to positive transactions as "income"
         - Use everyday financial language, not technical terms
-        - If amounts are very large, consider using K/M notation ($2.5K, $1.7M)
+        - Always display currency values following American formatting standards.
         </notes>
 
         <intent>
