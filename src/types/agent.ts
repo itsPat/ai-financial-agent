@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { messageSchema } from "./message";
 import { planSchema } from "./plan";
+import { agentErrorSchema } from "./error";
 
 export const agentStateResultSchema = z.object({
   message: z.string(),
@@ -11,7 +12,7 @@ export const agentStateSchema = z.object({
   messages: messageSchema.array(),
   intent: z.string().optional(),
   plan: planSchema.optional(),
-  error: z.string().optional(),
+  error: agentErrorSchema.optional(),
   result: agentStateResultSchema.optional(),
 });
 

@@ -112,7 +112,9 @@ export class Executor extends BaseNode {
     } catch (error) {
       console.error(error);
       return {
-        error: `Failed to execute plan: ${(error as any).message ?? ""}`,
+        error: {
+          message: `Failed to execute plan: ${(error as any).message ?? ""}`,
+        },
       };
     }
   }
