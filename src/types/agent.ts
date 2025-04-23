@@ -2,8 +2,9 @@ import { z } from "zod";
 import { messageSchema } from "./message";
 import { planSchema } from "./plan";
 import { agentErrorSchema } from "./error";
+import { chartSchema } from "./chart";
 
-export const agentStateResultSchema = z.object({
+export const textResponse = z.object({
   message: z.string(),
   methodology: z.string().optional(),
 });
@@ -13,7 +14,8 @@ export const agentStateSchema = z.object({
   intent: z.string().optional(),
   plan: planSchema.optional(),
   error: agentErrorSchema.optional(),
-  result: agentStateResultSchema.optional(),
+  textResponse: textResponse.optional(),
+  chartResponse: chartSchema.optional(),
 });
 
 export type AgentState = z.infer<typeof agentStateSchema>;

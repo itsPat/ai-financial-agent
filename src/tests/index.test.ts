@@ -223,12 +223,12 @@ describe("Financial Agent Tests", () => {
 
         const { verdict } = await compareResults(
           manualResult.message,
-          workflowResult?.result?.message
+          workflowResult?.textResponse?.message
         );
 
         testResults[prompt] = {
           manual: manualResult.message,
-          workflow: workflowResult?.result?.message ?? "No result",
+          workflow: workflowResult?.textResponse?.message ?? "No result",
         };
 
         expect(verdict).toBe("pass");

@@ -1,5 +1,5 @@
 import zodToJsonSchema from "zod-to-json-schema";
-import { AgentState, agentStateResultSchema } from "../types/agent";
+import { AgentState, textResponse } from "../types/agent";
 import BaseNode from "./base";
 import { AIMessage, SystemMessage } from "@langchain/core/messages";
 
@@ -11,26 +11,26 @@ export class Responder extends BaseNode {
 
   async run(state: AgentState): Promise<Partial<AgentState>> {
     await super.run(state);
-    let result: Required<AgentState>["result"] = {
+    let textResponse: Required<AgentState>["textResponse"] = {
       message: "Something went wrong.",
     };
 
     if (!state.error) {
-      result = await this.handleSuccess(state);
+      textResponse = await this.handleSuccess(state);
     }
 
     if (state.error) {
-      result = await this.handleError(state);
+      textResponse = await this.handleError(state);
     }
 
     return {
-      result,
+      textResponse,
     };
   }
 
   private async handleSuccess(
     state: AgentState
-  ): Promise<Required<AgentState>["result"]> {
+  ): Promise<Required<AgentState>["textResponse"]> {
     const prefill = `{ "message": `;
     const response = await this.llm.invoke([
       new SystemMessage(
@@ -60,7 +60,7 @@ export class Responder extends BaseNode {
         </plan>
 
         <schema>
-        ${zodToJsonSchema(agentStateResultSchema)}
+        ${zodToJsonSchema(textResponse)}
         </schema>
 
         <example>
@@ -84,7 +84,7 @@ export class Responder extends BaseNode {
 
     try {
       const json = JSON.parse(fullContent);
-      const result = await agentStateResultSchema.parseAsync(json);
+      const result = await textResponse.parseAsync(json);
       return result;
     } catch (err) {
       console.error(`Failed to parse: ${fullContent} into JSON.`);
@@ -94,7 +94,7 @@ export class Responder extends BaseNode {
 
   private async handleError(
     state: AgentState
-  ): Promise<Required<AgentState>["result"]> {
+  ): Promise<Required<AgentState>["textResponse"]> {
     const errorType =
       state.error && "type" in state.error ? state.error.type : undefined;
     switch (errorType) {
@@ -109,7 +109,7 @@ export class Responder extends BaseNode {
 
   private async handleMissingInformationError(
     state: AgentState
-  ): Promise<Required<AgentState>["result"]> {
+  ): Promise<Required<AgentState>["textResponse"]> {
     const response = await this.llm.invoke(
       `${this.rolePrompt}
 
@@ -140,7 +140,7 @@ export class Responder extends BaseNode {
   }
 
   private async handleMissingToolError(): Promise<
-    Required<AgentState>["result"]
+    Required<AgentState>["textResponse"]
   > {
     return {
       message:
@@ -148,7 +148,9 @@ export class Responder extends BaseNode {
     };
   }
 
-  private async handleGenericError(): Promise<Required<AgentState>["result"]> {
+  private async handleGenericError(): Promise<
+    Required<AgentState>["textResponse"]
+  > {
     return {
       message:
         "I'm sorry, something went wrong with processing your request. Our team has been notified of this issue. Is there anything else I can help you with?",

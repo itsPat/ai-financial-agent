@@ -4,6 +4,7 @@ import { AgentState } from "../types/agent";
 import { Planner } from "../nodes/planner";
 import { Executor } from "../nodes/executor";
 import { Responder } from "../nodes/responder";
+import { Visualizer } from "../nodes/visualizer";
 
 export default {
   financial: () => {
@@ -33,13 +34,15 @@ export default {
         intent: null,
         plan: null,
         error: null,
-        result: null,
+        textResponse: null,
+        chartResponse: null,
       },
     })
       // Create the nodes
       .addNode("Planner", new Planner(models.reasoning).run)
       .addNode("Executor", new Executor(models.execution).run)
       .addNode("Responder", new Responder(models.default).run)
+      .addNode("Visualizer", new Visualizer(models.execution).run)
       // Create edges.
       .addEdge(START, "Planner")
       // Hand off plan to executor if no errors.
@@ -49,11 +52,14 @@ export default {
       })
       // Continue handing off to executor until plan completed unless error.
       .addConditionalEdges("Executor", (state) => {
-        if (state.error) return "Responder";
+        if (state.error) return ["Responder", "Visualizer"];
         if (state.plan?.some((s) => s.status === "pending")) return "Executor";
-        return "Responder";
+        // Fan out to both nodes when execution completes successfully
+        return ["Responder", "Visualizer"];
       })
-      .addEdge("Responder", END);
+      // Fan in for completion.
+      .addEdge("Responder", END)
+      .addEdge("Visualizer", END);
 
     // Compile the workflow
     const workflow = graph.compile();

@@ -92,14 +92,11 @@ export class Planner extends BaseNode {
 
       const responseContent = response.content.toString();
 
-      console.log(`✨ response: ${responseContent}`);
       const fullContent = responseContent
         .replace(/\s+/g, "")
         .startsWith(prefill.replace(/\s+/g, ""))
         ? responseContent
         : prefill + responseContent;
-
-      console.log(`✨ fullContent: ${responseContent}`);
 
       if (!fullContent) throw new Error("Failed to get response");
 

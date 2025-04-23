@@ -1,7 +1,0 @@
-{
-  "status": "failed",
-  "error": {
-    "type": "MissingInformation",
-    "message": "Cannot proceed without a date range."
-  }
-}

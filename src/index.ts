@@ -29,7 +29,7 @@ async function main() {
         messages,
       };
 
-      const stream = await workflow.stream(state, { debug: true });
+      const stream = await workflow.stream(state);
       let totalSteps = 0;
 
       for await (const chunk of stream) {
@@ -45,7 +45,7 @@ async function main() {
               0
             ) ?? 0) +
             (state.plan ? 1 : 0) +
-            (state.result ? 1 : 0);
+            (state.textResponse ? 1 : 0);
           const progress = stepsCompleted / totalSteps;
           console.log(`\n======================================`);
           console.log(
@@ -63,13 +63,17 @@ async function main() {
         console.error("Error:", state.error);
       }
 
-      if (state.result) {
+      if (state.textResponse) {
         messages.push({
           role: "assistant",
-          content: state.result.message,
+          content: state.textResponse.message,
           date: new Date().toISOString(),
         });
-        console.log("🤖💬:", state.result.message);
+        console.log("🤖💬:", state.textResponse.message);
+      }
+
+      if (state.chartResponse) {
+        console.log(state.chartResponse);
       }
 
       // Prompt for the next question
