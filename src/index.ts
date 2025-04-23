@@ -5,6 +5,7 @@ import readline from "readline";
 import { AgentState } from "./types/agent";
 import { Message } from "./types/message";
 import Workflows from "./workflows";
+import { END, START } from "@langchain/langgraph";
 
 // Main function
 async function main() {
@@ -29,33 +30,65 @@ async function main() {
         messages,
       };
 
-      const stream = await workflow.stream(state);
-      let totalSteps = 0;
+      const stream = workflow.streamEvents(state, { version: "v2" });
 
-      for await (const chunk of stream) {
-        for (const [nodeName, delta] of Object.entries(
-          chunk as Record<string, Partial<AgentState>>
-        )) {
-          state = { ...state, ...delta };
+      const nodeNames = new Set(
+        Object.keys(workflow.nodes).filter((n) => n !== START && n !== END)
+      );
+      const graphName = "LangGraph";
+      let totalSteps = "?";
 
-          totalSteps = (state.plan?.length ?? 0) + 2;
-          const stepsCompleted =
-            (state.plan?.reduce(
-              (prev, curr) => prev + (curr.status === "completed" ? 1 : 0),
-              0
-            ) ?? 0) +
-            (state.plan ? 1 : 0) +
-            (state.textResponse ? 1 : 0);
-          const progress = stepsCompleted / totalSteps;
-          console.log(`\n======================================`);
-          console.log(
-            `[${nodeName.toUpperCase()}] Finished (${Math.floor(
-              progress * 100
-            )}%)`
-          );
-          console.log(`--------------------------------------`);
-          console.log({ ...state, ...delta });
-          console.log(`======================================`);
+      for await (const { event, name, data } of stream) {
+        totalSteps = state.plan
+          ? ((state.plan.length ?? 0) + 2).toString()
+          : "?";
+        const stepsCompleted =
+          (state.plan?.reduce(
+            (prev, curr) => prev + (curr.status === "completed" ? 1 : 0),
+            0
+          ) ?? 0) +
+          (state.plan ? 1 : 0) +
+          (state.textResponse ? 1 : 0);
+
+        if (event === "on_chain_start") {
+          if (name === graphName) {
+            console.log(`✨ Graph START`);
+          }
+          if (nodeNames.has(name)) {
+            console.log(
+              `✨ ${name} START (${stepsCompleted}/${totalSteps})`,
+              data.input
+            );
+          }
+        }
+
+        if (event === "on_chain_end") {
+          if (name === graphName) {
+            const fullState = data.output as AgentState;
+            state = fullState;
+            console.log(`✨ Graph END`, fullState);
+          }
+          if (nodeNames.has(name)) {
+            const delta = data.output as Partial<AgentState>;
+            state = { ...state, ...delta };
+            console.log(
+              `✨ ${name} END (${stepsCompleted}/${totalSteps})`,
+              delta
+            );
+          }
+        }
+
+        if (event === "on_custom_event") {
+          if (name === "TOOL_CALL") {
+            console.log(`🛠️  TOOL CALL`, data);
+          }
+          if (name === "PIPE_CHUNK") {
+            // Use this custom event to pipe the specific chunks we want back to client.
+          }
+        }
+
+        if (event === "on_chat_model_stream") {
+          // access streamed tokens from LLMs.
         }
       }
 

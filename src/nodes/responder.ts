@@ -11,6 +11,7 @@ export class Responder extends BaseNode {
 
   async run(state: AgentState): Promise<Partial<AgentState>> {
     await super.run(state);
+
     let textResponse: Required<AgentState>["textResponse"] = {
       message: "Something went wrong.",
     };

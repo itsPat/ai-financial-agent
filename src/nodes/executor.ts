@@ -3,6 +3,7 @@ import BaseNode from "./base";
 import { Plan, PlanStep } from "../types/plan";
 import { ChatOpenAI, ChatOpenAICallOptions } from "@langchain/openai";
 import { ALL_TOOLS, TOOLS_BY_NAME } from "../tools";
+import { dispatchCustomEvent } from "@langchain/core/callbacks/dispatch";
 export class Executor extends BaseNode {
   constructor(llm: ChatOpenAI<ChatOpenAICallOptions>) {
     super(llm);
@@ -74,15 +75,11 @@ export class Executor extends BaseNode {
         for (const toolCall of response.tool_calls) {
           const tool = TOOLS_BY_NAME[toolCall.name];
           const result = await tool.invoke(toolCall.args as any);
-          console.log(
-            `🛠️: ${toolCall.name
-              .replace("_", " ")
-              .toUpperCase()}\n${JSON.stringify(
-              toolCall.args,
-              null,
-              1
-            )}\n${result}`
-          );
+          dispatchCustomEvent("TOOL_CALL", {
+            toolName: toolCall.name,
+            parameters: toolCall.args,
+            result: result,
+          });
           results.push({
             tool_name: toolCall.name,
             tool_args: toolCall.args,
